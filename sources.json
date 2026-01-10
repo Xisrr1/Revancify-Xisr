@@ -47,5 +47,13 @@
             "json": "https://raw.githubusercontent.com/MorpheApp/morphe-patches/refs/heads/main/patches-list.json",
             "version": null
         }
+    },
+    {
+        "source": "ReVanced-Experiments",
+        "repository": "Aunali321/ReVancedExperiments",
+        "api": {
+            "json": null,
+            "version": null
+        }
     }
 ]
