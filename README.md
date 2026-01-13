@@ -18,6 +18,7 @@
 
 # Revancify Xisr Features & Roadmap
 - [x] Supports Pre-released patches
+- [x] Supports Morphe and Piko patches
 - [x] Can be used alongside stock Revancify
 - [x] Auto launches after updates
 - [x] Displays the current version information in the title bar
@@ -51,3 +52,5 @@ Or use with arguments. Check them with `xisr -h`
 # Thanks & Credits
 [Revanced](https://github.com/revanced)  
 [Revanced Extended](https://github.com/inotia00)  
+
+
