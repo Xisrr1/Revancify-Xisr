@@ -16,6 +16,11 @@ parsePatchesJson() {
 
     while [ -z "$APPS_LIST" ]; do
         if [ -e "assets/$SOURCE/Apps-$PATCHES_VERSION.json" ]; then
+            # Migration
+            if ! jq -e '.[0].appUrl' "assets/$SOURCE/Apps-$PATCHES_VERSION.json" &>/dev/null; then
+                rm "assets/$SOURCE/Apps-$PATCHES_VERSION.json"
+                fetchAppsInfo || return 1
+            fi
             readarray -t APPS_LIST < <(
                 jq -rc '
                     reduce .[] as $APP_INFO (
