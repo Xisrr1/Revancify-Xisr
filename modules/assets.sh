@@ -47,59 +47,6 @@ fetchAssetsInfo() {
             return 1
         fi
     
-    if [ "$USE_PRE_RELEASE" == "on" ]; then
-
-            jq '
-
-                (.[]
-
-                | select(.source == "Anddea")
-
-                | .api.json) |= sub("main"; "dev")
-
-            ' sources.json > sources_tmp.json && mv sources_tmp.json sources.json
-     else
-            jq '
-
-                (.[]
-
-                | select(.source == "Anddea")
-
-                | .api.json) |= sub("dev"; "main")
-
-            ' sources.json > sources_tmp.json && mv sources_tmp.json sources.json
-      fi
-
-        
-
-      if [ "$USE_PRE_RELEASE" == "on" ]; then
-            jq '
-
-                (.[]
-
-                | select(.source == "ReVanced-Extended")
-
-                | .api.json) |= sub("revanced-extended"; "dev")
-
-            ' sources.json > sources_tmp.json && mv sources_tmp.json sources.json
-       else
-            jq '
-
-                (.[]
-
-                | select(.source == "ReVanced-Extended")
-
-                | .api.json) |= sub("dev"; "revanced-extended")
-
-            ' sources.json > sources_tmp.json && mv sources_tmp.json sources.json
-        fi
-
-        if [ "$USE_PRE_RELEASE" == "on" ]; then
-            jq '(.[] | select(.source == "Morphe") | .api.json) |= sub("main"; "dev")' sources.json > sources_tmp.json && mv sources_tmp.json sources.json
-        else
-            jq '(.[] | select(.source == "Morphe") | .api.json) |= sub("dev"; "main")' sources.json > sources_tmp.json && mv sources_tmp.json sources.json
-        fi
-
         source <(
 			  jq -r --arg SOURCE "$SOURCE" '
             .[] | select(.source == $SOURCE) |
@@ -114,12 +61,10 @@ fetchAssetsInfo() {
             ' sources.json
         )
 
+        [ "$USE_PRE_RELEASE" == "on" ] && JSON_URL=$(sed 's|/refs/heads/[^/]*/|/refs/heads/dev/|' <<< "$JSON_URL")
+
         if [ "$SOURCE_TYPE" == "morphe" ]; then
-            if [ "$USE_PRE_RELEASE" == "on" ]; then
-                BUNDLE_URL="https://raw.githubusercontent.com/MorpheApp/morphe-patches/refs/heads/dev/patches-bundle.json"
-            else
-                BUNDLE_URL="https://raw.githubusercontent.com/MorpheApp/morphe-patches/refs/heads/main/patches-bundle.json"
-            fi
+            BUNDLE_URL="${JSON_URL%/*}/patches-bundle.json"
 
             if ! "${CURL[@]}" "$BUNDLE_URL" | jq -r '
                 "PATCHES_VERSION='\''\(.version)'\''",
