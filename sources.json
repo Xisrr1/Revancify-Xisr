@@ -49,6 +49,24 @@
         }
     },
     {
+        "source": "RVX-Morphed",
+        "repository": "wchill/rvx-morphed",
+        "type": "morphe",
+        "api": {
+            "json": "https://raw.githubusercontent.com/wchill/rvx-morphed/refs/heads/main/patches-list.json",
+            "version": null
+        }
+    },
+    {
+        "source": "Patcheddit",
+        "repository": "wchill/patcheddit",
+        "type": "morphe",
+        "api": {
+            "json": "https://raw.githubusercontent.com/wchill/patcheddit/refs/heads/main/patches-list.json",
+            "version": null
+        }
+    },
+    {
         "source": "ReVanced-Experiments",
         "repository": "Aunali321/ReVancedExperiments",
         "api": {
