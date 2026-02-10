@@ -1,30 +1,41 @@
 #!/usr/bin/bash
 
 selectFile() {
-    readarray -t STOCK_APPS < <(ls "$STORAGE/Stock/"*.apk "$STORAGE/Stock"/*.apkm 2> /dev/null | xargs basename -a 2> /dev/null)
-    if [ "${#STOCK_APPS[@]}" -eq 0 ]; then
-        notify msg "No apk found in Stock Apps directory !!\nMove app to 'Revancify-Xisr/Stock' to import."
-        TASK="CHOOSE_APP"
-        return 1
-    fi
-    if ! SELECTED_FILE=$(
-        "${DIALOG[@]}" \
-            --title '| Import App |' \
-            --no-items \
-            --ok-label 'Select' \
-            --cancel-label 'Back' \
-            --menu "$NAVIGATION_HINT" -1 -1 0 \
-            "${STOCK_APPS[@]}" \
-            2>&1 > /dev/tty
-    ); then
-        TASK="CHOOSE_APP"
-        return 1
-    fi
+    local DIR="/storage/emulated/0/Download"
+    
+    while :; do
+        local ITEMS=()
+        [[ "$DIR" != "/storage/emulated/0" ]] && ITEMS+=("...")
+        
+        readarray -t -O ${#ITEMS[@]} ITEMS < <(
+            find "$DIR" -type f \( -name "*.apk" -o -name "*.apkm" \) 2>/dev/null |
+            sed "s|^$DIR/||" | cut -d'/' -f1 | sort -u
+        )
+        
+        [[ ${#ITEMS[@]} -eq 0 ]] && { notify msg "No APK files found."; return 1; }
+        
+        local PICK
+        PICK=$(
+            "${DIALOG[@]}" \
+                --title '| Import App |' \
+                --no-items \
+                --default-item "$([[ "$DIR" != "/storage/emulated/0" ]] && printf '%s' "${ITEMS[1]}" || printf '%s' "${ITEMS[0]}")" \
+                --menu "$NAVIGATION_HINT\n\nCurrent Path: $DIR" -1 -1 0 \
+                "${ITEMS[@]}" \
+                2>&1 >/dev/tty
+        ) || { TASK="CHOOSE_APP"; return 1; }
+        
+        [[ "$PICK" == "..." ]] && { DIR=$(dirname "$DIR"); continue; }
+        [[ -d "$DIR/$PICK" ]] && { DIR="$DIR/$PICK"; continue; }
+        
+        SELECTED_FILE="$DIR/$PICK"
+        return 0
+    done
 }
 
 extractMeta() {
     local APP_INFO
-    FILE_PATH="$STORAGE/Stock/$SELECTED_FILE"
+    FILE_PATH="$SELECTED_FILE"
     if [ "${SELECTED_FILE##*.}" == "apk" ]; then
         notify info "Please Wait !!\nExtracting data from \"$(basename "$FILE_PATH")\""
         if ! APP_INFO=$(./bin/aapt2 dump badging "$FILE_PATH"); then

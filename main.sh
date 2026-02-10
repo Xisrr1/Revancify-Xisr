@@ -11,7 +11,7 @@ main() {
     setEnv REVANCIFY_XISR_BETA "off" init .config
     source .config
 
-    mkdir -p "assets" "apps" "$STORAGE" "$STORAGE/Patched" "$STORAGE/Stock"
+    mkdir -p "assets" "apps" "$STORAGE" "$STORAGE/Patched"
 
     [ "$ROOT_ACCESS" == true ] && MENU_ENTRY=(7 "Unmount Patched app")
 
