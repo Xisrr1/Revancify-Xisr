@@ -3,6 +3,7 @@
 configure() {
     local CONFIG_OPTS UPDATED_CONFIG THEME
     local PREV_BETA="$REVANCIFY_XISR_BETA"
+    local PREV_USE_PRE_RELEASE="$USE_PRE_RELEASE"
     CONFIG_OPTS=(
         "LIGHT_THEME" "Light Theme" "$LIGHT_THEME"
         "PREFER_SPLIT_APK" "Prefer Split APK" "$PREFER_SPLIT_APK"
@@ -31,6 +32,10 @@ configure() {
     done
 
     source .config
+
+    if [ "$PREV_USE_PRE_RELEASE" != "$USE_PRE_RELEASE" ]; then
+        rm -f assets/*/.data assets/*-cli.data &> /dev/null
+    fi
 
     if [ "$PREV_BETA" = "off" ] && [ "$REVANCIFY_XISR_BETA" = "on" ]; then
         if ! "${DIALOG[@]}" --title "Enable Beta Updates?" --yes-label "Confirm" --no-label "Cancel" --yesno "Are you sure you want to enable Revancify Xisr beta updates?\n\nThis option enables beta/pre-release updates for Revancify Xisr itself.\nIt does NOT affect the stability or update channel of patches or the apps you install.\n\nBeta versions may include new features and bug fixes, but could also be less stable than regular releases.\n\nIf Revancify Xisr fails to launch after enabling beta, you can recover by running 'xisr -f'.\n\nYou can always turn this option off in the Settings menu.\n\nProceeding will restart Revancify Xisr." -1 -1; then

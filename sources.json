@@ -42,7 +42,6 @@
     {
         "source": "Morphe",
         "repository": "MorpheApp/morphe-patches",
-        "type": "morphe",
         "api": {
             "json": "https://raw.githubusercontent.com/MorpheApp/morphe-patches/refs/heads/main/patches-list.json",
             "version": null
@@ -51,7 +50,6 @@
     {
         "source": "RVX-Morphed",
         "repository": "wchill/rvx-morphed",
-        "type": "morphe",
         "api": {
             "json": "https://raw.githubusercontent.com/wchill/rvx-morphed/refs/heads/main/patches-list.json",
             "version": null
@@ -60,7 +58,6 @@
     {
         "source": "Patcheddit",
         "repository": "wchill/patcheddit",
-        "type": "morphe",
         "api": {
             "json": "https://raw.githubusercontent.com/wchill/patcheddit/refs/heads/main/patches-list.json",
             "version": null

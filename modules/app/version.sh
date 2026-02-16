@@ -33,16 +33,28 @@ fetchPage() {
 }
 
 showRecommendedVersions() {
-    local SELECTED_VERSION EXIT_CODE
+    local SELECTED_VERSION EXIT_CODE STORED_VER=""
+
+    STORED_APK=$(ls "apps/$APP_NAME/"*.apk 2>/dev/null | grep -v -- "-" | head -n 1)
+    [[ -n "$STORED_APK" ]] && STORED_VER=$(basename "$STORED_APK" .apk)
 
     readarray -t RECOMMENDED_LIST < <(
-        jq -nrc --arg PKG_NAME "$PKG_NAME" --arg INSTALLED_VERSION "$INSTALLED_VERSION" --argjson AVAILABLE_PATCHES "$AVAILABLE_PATCHES" '
-            ($AVAILABLE_PATCHES[] | select(.pkgName == $PKG_NAME) | .versions // []) as $VERSIONS |
-            if ($VERSIONS | length) == 0 then empty
-            else $VERSIONS | reverse | .[] | . as $VER |
-                {version: $VER, tag: (if $VER == $INSTALLED_VERSION then "[INSTALLED]" else "[RECOMMENDED]" end), url: null},
-                "\($VER)|\(if $VER == $INSTALLED_VERSION then "[INSTALLED]" else "[RECOMMENDED]" end)"
-            end
+        jq -nrc --arg PKG "$PKG_NAME" --arg INSTALLED "$INSTALLED_VERSION" --arg STORED "$STORED_VER" --argjson PATCHES "$AVAILABLE_PATCHES" '
+            ($PATCHES[] | select(.pkgName == $PKG) | .versions // []) as $REC |
+            (if $STORED != "" then [{
+                ver: $STORED,
+                tag: (["[RECENT]"]
+                    + (if $REC | index($STORED) then ["[RECOMMENDED]"] else [] end)
+                    + (if $STORED == $INSTALLED then ["[INSTALLED]"] else [] end)
+                    | join(""))
+            }] else [] end) +
+            [if ($REC | length) > 0 then
+                $REC | reverse | .[] | select(. != $STORED) | {
+                    ver: .,
+                    tag: (if . == $INSTALLED then "[INSTALLED]" else "[RECOMMENDED]" end)
+                }
+            else empty end] |
+            .[] | {version: .ver, tag: .tag, url: null}, "\(.ver)|\(.tag)"
         '
     )
 

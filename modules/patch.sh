@@ -35,7 +35,14 @@ patchApp() {
         return 1
     fi
 
-    SOURCE_TYPE=$(jq -r --arg SOURCE "$SOURCE" '.[] | select(.source == $SOURCE) | .type // "revanced"' sources.json)
+    case "$PATCHES_FILE" in
+        *.mpp)
+            SOURCE_TYPE="morphe"
+            ;;
+        *.rvp)
+            SOURCE_TYPE="revanced"
+            ;;
+    esac
     # Migration
     if [ -f "$STORAGE/xisr.keystore" ]; then
         if grep -qa "Morphe Key" "$STORAGE/xisr.keystore"; then

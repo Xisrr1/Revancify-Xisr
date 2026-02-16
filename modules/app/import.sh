@@ -1,30 +1,60 @@
 #!/usr/bin/bash
 
 selectFile() {
-    readarray -t STOCK_APPS < <(ls "$STORAGE/Stock/"*.apk "$STORAGE/Stock"/*.apkm 2> /dev/null | xargs basename -a 2> /dev/null)
-    if [ "${#STOCK_APPS[@]}" -eq 0 ]; then
-        notify msg "No apk found in Stock Apps directory !!\nMove app to 'Revancify-Xisr/Stock' to import."
-        TASK="CHOOSE_APP"
-        return 1
-    fi
-    if ! SELECTED_FILE=$(
-        "${DIALOG[@]}" \
-            --title '| Import App |' \
-            --no-items \
-            --ok-label 'Select' \
-            --cancel-label 'Back' \
-            --menu "$NAVIGATION_HINT" -1 -1 0 \
-            "${STOCK_APPS[@]}" \
-            2>&1 > /dev/tty
-    ); then
-        TASK="CHOOSE_APP"
-        return 1
-    fi
+    local DIR="/storage/emulated/0/Download"
+    
+    while :; do
+        local MAX_LENGTH=$(( $(tput cols) * 3 / 5 ))
+        local ITEMS=() MENU_ITEMS=()
+        [[ "$DIR" != "/storage/emulated/0" ]] && ITEMS+=("...")
+        
+        readarray -t -O ${#ITEMS[@]} ITEMS < <(
+            {
+                for d in "$DIR"/*/; do
+                    [ -d "$d" ] || continue
+                    d=${d%/}
+                    printf '%s/\n' "${d##*/}"
+                done
+                for f in "$DIR"/*.apk "$DIR"/*.apkm; do
+                    [ -f "$f" ] || continue
+                    printf '%s\n' "${f##*/}"
+                done
+            } | sort -u
+        )
+
+        for ITEM in "${ITEMS[@]}"; do
+            MENU_ITEMS+=("$ITEM")
+            if [[ ${#ITEM} -gt $MAX_LENGTH ]]; then
+                MENU_ITEMS+=("${ITEM:0:MAX_LENGTH-11}…${ITEM: -10}")
+            else
+                MENU_ITEMS+=("$ITEM")
+            fi
+            MENU_ITEMS+=("$ITEM")
+        done
+        
+        local PICK
+        PICK=$(
+            "${DIALOG[@]}" \
+                --title '| Import App |' \
+                --no-tags \
+                --item-help \
+                --default-item "$([[ "$DIR" != "/storage/emulated/0" ]] && printf '%s' "${ITEMS[1]}" || printf '%s' "${ITEMS[0]}")" \
+                --menu "$NAVIGATION_HINT\n\nCurrent Path: $DIR" $(( $(tput lines) - 3 )) -1 15 \
+                "${MENU_ITEMS[@]}" \
+                2>&1 >/dev/tty
+        ) || { TASK="CHOOSE_APP"; return 1; }
+        
+        [[ "$PICK" == "..." ]] && { DIR=$(dirname "$DIR"); continue; }
+        [[ -d "$DIR/${PICK%/}" ]] && { DIR="$DIR/${PICK%/}"; continue; }
+        
+        SELECTED_FILE="$DIR/$PICK"
+        return 0
+    done
 }
 
 extractMeta() {
     local APP_INFO
-    FILE_PATH="$STORAGE/Stock/$SELECTED_FILE"
+    FILE_PATH="$SELECTED_FILE"
     if [ "${SELECTED_FILE##*.}" == "apk" ]; then
         notify info "Please Wait !!\nExtracting data from \"$(basename "$FILE_PATH")\""
         if ! APP_INFO=$(./bin/aapt2 dump badging "$FILE_PATH"); then

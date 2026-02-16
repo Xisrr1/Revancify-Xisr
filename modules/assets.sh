@@ -2,9 +2,7 @@
 
 fetchAssetsInfo() {
     unset CLI_VERSION CLI_URL CLI_SIZE PATCHES_VERSION PATCHES_URL PATCHES_SIZE JSON_URL SOURCE_TYPE
-    local SOURCE_INFO VERSION PATCHES_API_URL
-
-    SOURCE_TYPE=$(jq -r --arg SOURCE "$SOURCE" '.[] | select(.source == $SOURCE) | .type // "revanced"' sources.json)
+    local VERSION PATCHES_API_URL CLI_API_URL REPO VERSION_URL
 
     internet || return 1
 
@@ -12,9 +10,68 @@ fetchAssetsInfo() {
 
         mkdir -p "assets/$SOURCE"
 
-        rm "assets/$SOURCE/.data" "assets/.data" &> /dev/null
+        rm "assets/$SOURCE/.data" &> /dev/null
 
         notify info "Fetching Assets Info..."
+
+        source <(
+			  jq -r --arg SOURCE "$SOURCE" '
+            .[] | select(.source == $SOURCE) |
+            "REPO=\(.repository)",
+                (
+                    .api // empty |
+                    (
+                        (.json // empty | "JSON_URL=\(.)"),
+                        (.version // empty | "VERSION_URL=\(.)")
+                    )
+                )
+            ' sources.json
+        )
+
+        [ "$USE_PRE_RELEASE" == "on" ] && JSON_URL=$(sed 's|/refs/heads/[^/]*/|/refs/heads/dev/|' <<< "$JSON_URL")
+
+        if [ -n "$VERSION_URL" ]; then
+            if VERSION=$("${CURL[@]}" "$VERSION_URL" | jq -r '.version' 2> /dev/null); then
+                PATCHES_API_URL="https://api.github.com/repos/$REPO/releases/tags/$VERSION"
+            else
+                notify msg "Unable to fetch latest version from API!!\nRetry later."
+                return 1
+            fi
+        else
+            if [ "$USE_PRE_RELEASE" == "on" ]; then
+                PATCHES_API_URL="https://api.github.com/repos/$REPO/releases"
+            else
+                PATCHES_API_URL="https://api.github.com/repos/$REPO/releases/latest"
+            fi
+        fi
+
+        if ! "${CURL[@]}" "$PATCHES_API_URL" |
+            jq -er '
+                (if type == "array" then .[0] else . end) as $RELEASE |
+                ($RELEASE.assets | map(select(.name | endswith(".rvp") or endswith(".mpp")))[0]) as $ASSET |
+                select($ASSET != null) |
+                "PATCHES_VERSION='\''\($RELEASE.tag_name)'\''",
+                "PATCHES_URL='\''\($ASSET.browser_download_url)'\''",
+                "PATCHES_SIZE='\''\($ASSET.size|tostring)'\''"
+            ' > "assets/$SOURCE/.data" 2> /dev/null; then
+            notify msg "Unable to fetch latest Patches info from API!!\nRetry later."
+            return 1
+        fi
+
+        [ -n "$JSON_URL" ] && setEnv JSON_URL "$JSON_URL" init "assets/$SOURCE/.data"
+
+        source "assets/$SOURCE/.data"
+
+        case "$PATCHES_URL" in
+            *.mpp)
+                SOURCE_TYPE="morphe"
+                ;;
+            *.rvp)
+                SOURCE_TYPE="revanced"
+                ;;
+        esac
+
+        rm "assets/$SOURCE_TYPE-cli.data" &> /dev/null
 
         if [ "$SOURCE_TYPE" == "morphe" ]; then
             if [ "$USE_PRE_RELEASE" == "on" ]; then
@@ -42,104 +99,61 @@ fetchAssetsInfo() {
                     empty
                 end
             )
-        ' > assets/.data 2> /dev/null; then
+        ' > "assets/$SOURCE_TYPE-cli.data" 2> /dev/null; then
             notify msg "Unable to fetch latest CLI info from API!!\nRetry later."
             return 1
         fi
-    
-        source <(
-			  jq -r --arg SOURCE "$SOURCE" '
-            .[] | select(.source == $SOURCE) |
-            "REPO=\(.repository)",
-                (
-                    .api // empty |
-                    (
-                        (.json // empty | "JSON_URL=\(.)"),
-                        (.version // empty | "VERSION_URL=\(.)")
-                    )
-                )
-            ' sources.json
-        )
-
-        [ "$USE_PRE_RELEASE" == "on" ] && JSON_URL=$(sed 's|/refs/heads/[^/]*/|/refs/heads/dev/|' <<< "$JSON_URL")
-
-        if [ "$SOURCE_TYPE" == "morphe" ]; then
-            BUNDLE_URL="${JSON_URL%/*}/patches-bundle.json"
-
-            if ! "${CURL[@]}" "$BUNDLE_URL" | jq -r '
-                "PATCHES_VERSION='\''\(.version)'\''",
-                "PATCHES_URL='\''\(.download_url)'\''"
-            ' > "assets/$SOURCE/.data" 2> /dev/null; then
-                notify msg "Unable to fetch Morphe patches bundle!!\nRetry later."
-                return 1
-            fi
-
-            source "assets/$SOURCE/.data"
-            PATCHES_SIZE=$("${CURL[@]}" -sIL "$PATCHES_URL" | grep -i content-length | tail -1 | awk '{print $2}' | tr -d '\r')
-            setEnv PATCHES_SIZE "$PATCHES_SIZE" init "assets/$SOURCE/.data"
-        else
-            if [ -n "$VERSION_URL" ]; then
-                if VERSION=$("${CURL[@]}" "$VERSION_URL" | jq -r '.version' 2> /dev/null); then
-                    PATCHES_API_URL="https://api.github.com/repos/$REPO/releases/tags/$VERSION"
-                else
-                    notify msg "Unable to fetch latest version from API!!\nRetry later."
-                    return 1
-                fi
-            else
-                if [ "$USE_PRE_RELEASE" == "on" ]; then
-                    PATCHES_API_URL="https://api.github.com/repos/$REPO/releases"
-                else
-                    PATCHES_API_URL="https://api.github.com/repos/$REPO/releases/latest"
-                fi
-            fi
-
-            if ! "${CURL[@]}" "$PATCHES_API_URL" |
-                jq -r '
-                    if type == "array" then .[0] else . end |
-                    "PATCHES_VERSION='\''\(.tag_name)'\''",
-                    (
-                        .assets[] |
-                        if (.name | endswith(".rvp")) then
-                            "PATCHES_URL='\''\(.browser_download_url)'\''",
-                            "PATCHES_SIZE='\''\(.size|tostring)'\''"
-                        else
-                            empty
-                        end
-                    )
-                ' > "assets/$SOURCE/.data" \
-                    2> /dev/null; then
-                notify msg "Unable to fetch latest Patches info from API!!\nRetry later."
-                return 1
-            fi
-        fi
-
-        [ -n "$JSON_URL" ] && setEnv JSON_URL "$JSON_URL" init "assets/$SOURCE/.data"
     else
         notify msg "Unable to check for update.\nYou are probably rate-limited at this moment.\nTry again later or Run again with '-o' argument."
         return 1
     fi
-    source "assets/.data"
+    source "assets/$SOURCE_TYPE-cli.data"
     source "assets/$SOURCE/.data"
 }
 
 fetchAssets() {
     local CTR SOURCE_TYPE
 
-    if [ -e "assets/.data" ] && [ -e "assets/$SOURCE/.data" ]; then
-        source "assets/.data"
+    #Migration
+    rm -f -- assets/.data assets/CLI-* assets/morphe-cli-* assets/revanced-cli-* &> /dev/null
+
+    if [ -e "assets/$SOURCE/.data" ]; then
         source "assets/$SOURCE/.data"
     else
         fetchAssetsInfo || return 1
     fi
 
-    SOURCE_TYPE=$(jq -r --arg SOURCE "$SOURCE" '.[] | select(.source == $SOURCE) | .type // "revanced"' sources.json)
+    case "$PATCHES_URL" in
+        *.mpp)
+            SOURCE_TYPE="morphe"
+            ;;
+        *.rvp)
+            SOURCE_TYPE="revanced"
+            ;;
+    esac
+
+    if [ -e "assets/$SOURCE_TYPE-cli.data" ]; then
+        source "assets/$SOURCE_TYPE-cli.data"
+    else
+        fetchAssetsInfo || return 1
+        source "assets/$SOURCE/.data"
+        case "$PATCHES_URL" in
+            *.mpp)
+                SOURCE_TYPE="morphe"
+                ;;
+            *.rvp)
+                SOURCE_TYPE="revanced"
+                ;;
+        esac
+        source "assets/$SOURCE_TYPE-cli.data"
+    fi
 
     if [ "$SOURCE_TYPE" == "morphe" ]; then
-        CLI_FILE="assets/morphe-cli-$CLI_VERSION.jar"
-        [ -e "$CLI_FILE" ] || rm -- assets/morphe-cli-* &> /dev/null
+        CLI_FILE="assets/Morphe-CLI-$CLI_VERSION.jar"
+        [ -e "$CLI_FILE" ] || rm -- assets/Morphe-CLI-* &> /dev/null
     else
-        CLI_FILE="assets/CLI-$CLI_VERSION.jar"
-        [ -e "$CLI_FILE" ] || rm -- assets/CLI-* &> /dev/null
+        CLI_FILE="assets/ReVanced-CLI-$CLI_VERSION.jar"
+        [ -e "$CLI_FILE" ] || rm -- assets/ReVanced-CLI-* &> /dev/null
     fi
 
     CTR=2 && while [ "$CLI_SIZE" != "$(stat -c %s "$CLI_FILE" 2> /dev/null || echo 0)" ]; do
