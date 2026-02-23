@@ -17,14 +17,19 @@
 
 
 # Revancify Xisr Features & Roadmap
-- [x] Supports Pre-released patches
-- [x] Supports Morphe and Piko patches
+- [x] Has a redesigned version selection menu with a new `Recommended Versions` page that loads instantly
+- [x] Displays recently patched versions in the `Recommended Versions` page for quick patching
+- [x] Has a `More versions` option to browse all available versions from APKMirror without limits
+- [x] Supports pre-release patches and CLIs
+- [x] Supports the new Morphe format with automatic source type detection
+- [x] Supports `Piko`,`Morphe`,`RVX-Morphed`,`Patcheddit` and `ReVanced-Experiments` sources
+- [x] Has a redesigned `Import` menu with a full internal storage browser
+- [x] Allows manually importing APKs if fetching app list fails
+- [x] Uses an updated user-agent to reduce Cloudflare blocks
 - [x] Can be used alongside stock Revancify
 - [x] Auto launches after updates
-- [x] Displays the current version information in the title bar
-- [x] Allows manually importing APKs if fetching app list fails
-- [ ] 'About' menu with technical info, changelogs and more
-- [x] Ability to opt-in for pre-release Revancify Xisr versions
+- [x] Displays the current version information in the title bar
+- [x] Has the ability to opt-in for pre-release Revancify Xisr versions
 
 # Revancify Features
 1. Auto fetches Patches and CLI
