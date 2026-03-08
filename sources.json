@@ -48,6 +48,14 @@
         }
     },
     {
+        "source": "De-ReVanced",
+        "repository": "RookieEnough/De-ReVanced",
+        "api": {
+            "json": "https://raw.githubusercontent.com/RookieEnough/De-ReVanced/refs/heads/main/patches-list.json",
+            "version": null
+        }
+    },
+    {
         "source": "RVX-Morphed",
         "repository": "wchill/rvx-morphed",
         "api": {
