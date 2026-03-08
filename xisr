@@ -163,6 +163,7 @@ fetchSrc() {
         rm -rf Revancify-Xisr-* &> /dev/null
         cp -f "$SRC/xisr" "$PREFIX/bin/xisr"
         chmod +x "$PREFIX/bin/xisr"
+        echo "VERSION='$TAG'" > "$SRC/.info"
         exec "$PREFIX/bin/xisr" "$@"
     else
         echo -e "Unable to install Revancify Xisr $TAG !!\nPlease try again with proper Internet"
