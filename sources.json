@@ -19,7 +19,7 @@
         "source": "Anddea",
         "repository": "anddea/revanced-patches",
         "api": {
-            "json": "https://raw.githubusercontent.com/anddea/revanced-patches/refs/heads/main/patches.json",
+            "json": "https://raw.githubusercontent.com/anddea/revanced-patches/refs/heads/main/patches-list.json",
             "version": null
         }
     },
@@ -27,7 +27,7 @@
         "source": "Piko",
         "repository": "crimera/piko",
         "api": {
-            "json": "https://raw.githubusercontent.com/crimera/piko/refs/heads/main/patches.json",
+            "json": "https://raw.githubusercontent.com/crimera/piko/refs/heads/main/patches-list.json",
             "version": null
         }
     },
