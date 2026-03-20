@@ -5,9 +5,13 @@ parseJsonFromCLI() {
 
     AVAILABLE_PATCHES='[]'
 
-    readarray -d '' -t PACKAGES < <(java -jar "$CLI_FILE" list-versions "$PATCHES_FILE" -u | sed 's/INFO: //' | awk -v RS='' -v ORS='\0' '1')
-
-    readarray -d '' -t PATCHES < <(java -jar "$CLI_FILE" list-patches "$PATCHES_FILE" -iopd | sed 's/INFO: //' | awk -v RS='' -v ORS='\0' '1')
+    if [ "$SOURCE" == "ReVanced" ]; then
+        readarray -d '' -t PACKAGES < <(java -jar "$CLI_FILE" list-versions --bypass-verification -p "$PATCHES_FILE" -u | sed 's/INFO: //' | awk -v RS='' -v ORS='\0' '1')
+        readarray -d '' -t PATCHES < <(java -jar "$CLI_FILE" list-patches --bypass-verification --packages --versions --options -p "$PATCHES_FILE" | sed 's/INFO: //' | awk -v RS='' -v ORS='\0' '1')
+    else
+        readarray -d '' -t PACKAGES < <(java -jar "$CLI_FILE" list-versions "$PATCHES_FILE" -u | sed 's/INFO: //' | awk -v RS='' -v ORS='\0' '1')
+        readarray -d '' -t PATCHES < <(java -jar "$CLI_FILE" list-patches "$PATCHES_FILE" -iopd | sed 's/INFO: //' | awk -v RS='' -v ORS='\0' '1')
+    fi
 
     TOTAL=$((${#PACKAGES[@]} + ${#PATCHES[@]}))
 
@@ -65,93 +69,195 @@ parseJsonFromCLI() {
 
         PATCH_NAME=$(grep '^Name:' <<< "$PATCH" | sed 's/.*: //')
         USE=$(grep '^Enabled:' <<< "$PATCH" | sed 's/.*: //')
-        PATCH=$(sed '/^Name:/d;/^Enabled:/d' <<< "$PATCH")
+        if [ "$SOURCE" == "ReVanced" ]; then
+            PATCH=$(sed '/^Name:/d;/^Enabled:/d;/^Description:/d' <<< "$PATCH")
 
-        if grep -q '^C' <<< "$PATCH"; then
-            readarray -t PACKAGES < <(grep $'^\tPackage name:' <<< "$PATCH" | sed 's/.*: //;s/ //g')
-            PATCH=$(sed '/^Compatible packages:/d;/^\tPackage name:/d' <<< "$PATCH")
-        fi
+            if grep -q '^Compatible packages:' <<< "$PATCH"; then
+                readarray -t PACKAGES < <(grep $'^\tPackage name:' <<< "$PATCH" | sed 's/.*: //;s/ //g')
+                PATCH=$(sed '/^Compatible packages:/d;/^\tPackage name:/d;/^\tVersions:/d;/^\tCompatible versions:/d;/^\t\t/d' <<< "$PATCH")
+            fi
 
-        OPTIONS_ARRAY='[]'
-        if grep -q "Options:" <<< "$PATCH"; then
-            PATCH=$(sed '/^Options:/d;s/^\t//g' <<< "$PATCH")
-            readarray -d '' -t OPTIONS < <(awk -v RS='\n\nTitle' -v ORS='\0' '1' <<< "$PATCH")
+            OPTIONS_ARRAY='[]'
+            if grep -q "^Options:" <<< "$PATCH"; then
+                PATCH=$(sed '/^Options:/d;s/^\t//g' <<< "$PATCH")
+                readarray -d '' -t OPTIONS < <(awk -v RS='\n\nName' -v ORS='\0' '1' <<< "$PATCH")
 
-            for OPTION in "${OPTIONS[@]}"; do
+                for OPTION in "${OPTIONS[@]}"; do
 
-                KEY=$(grep '^Key:' <<< "$OPTION" | sed 's/.*: //;s/ //g')
-                TITLE=$(grep -E '^Title:|^:' <<< "$OPTION" | sed 's/.*: //;')
-                REQUIRED=$(grep '^Required:' <<< "$OPTION" | sed 's/.*: //')
-                DEFAULT=$(grep '^Default:' <<< "$OPTION" | sed 's/.*: //')
-                TYPE=$(grep '^Type:' <<< "$OPTION" | sed 's/.*: //;s/ //')
+                    TITLE=$(grep -E '^Name:|^:' <<< "$OPTION" | head -1 | sed 's/.*: //')
+                    KEY=$(sed 's/ //g' <<< "$TITLE")
+                    REQUIRED=$(grep '^Required:' <<< "$OPTION" | head -1 | sed 's/.*: //')
+                    DEFAULT=$(grep '^Default:' <<< "$OPTION" | head -1 | sed 's/.*: //;s/\r//g')
+                    TYPE=$(grep '^Type:' <<< "$OPTION" | head -1 | sed 's/.*: //;s/ //')
 
-                if grep -q "^Possible values:" <<< "$OPTION"; then
-                    readarray -t VALUES < <(grep $'^\t' <<< "$OPTION" | sed 's/\t//')
-                fi
+                    if grep -q "^Possible values:" <<< "$OPTION"; then
+                        readarray -t VALUES < <(grep $'^\t' <<< "$OPTION" | sed 's/\t//')
+                    fi
 
-                OPTION=$(sed '/^Key:/d;/^Title:/d;/^:/d;/^Required:/d;/^Default:/d;/^Type:/d;/^Possible values:/d;/^\t/d' <<< "$OPTION")
+                    OPTION=$(sed '/^Name:/d;/^:/d;/^Required:/d;/^Default:/d;/^Type:/d;/^Possible values:/d;/^\t/d' <<< "$OPTION")
+                    DESCRIPTION=$(sed 's/^Description: //' <<< "$OPTION" | tr '\n' ' ' | sed 's/  */ /g;s/^ *//;s/ *$//')
 
-                DESCRIPTION=$(sed 's/^Description: //;s/\n/\\n/g' <<< "$OPTION")
+                    OPTIONS_ARRAY=$(
+                        jq -nc \
+                            --arg PATCH_NAME "$PATCH_NAME" \
+                            --arg KEY "$KEY" \
+                            --arg TITLE "$TITLE" \
+                            --arg DESCRIPTION "$DESCRIPTION" \
+                            --arg REQUIRED "$REQUIRED" \
+                            --arg DEFAULT "$DEFAULT" \
+                            --arg TYPE "$TYPE" \
+                            --arg STRING "$STRING" \
+                            --arg NUMBER "$NUMBER" \
+                            --arg BOOLEAN "$BOOLEAN" \
+                            --arg STRINGARRAY "$STRINGARRAY" \
+                            --argjson OPTIONS_ARRAY "$OPTIONS_ARRAY" '
+                            (
+                                $TYPE |
+                                if . == null or . == "" then
+                                    $STRING
+                                elif test("List") then
+                                    $STRINGARRAY
+                                elif test("Boolean") then
+                                    $BOOLEAN
+                                elif test("Long|Int|Float") then
+                                    $NUMBER
+                                else
+                                    $STRING
+                                end
+                            ) as $TYPE |
+                            (
+                                $DEFAULT |
+                                if . != "" and . != null then
+                                    (
+                                        if $TYPE == $STRING then
+                                            tostring
+                                        elif $TYPE == $NUMBER then
+                                            tonumber
+                                        elif $TYPE == $BOOLEAN then
+                                            (. == "true")
+                                        elif $TYPE == $STRINGARRAY then
+                                            (
+                                                gsub("^\\[|\\]$";"") |
+                                                split(",") |
+                                                map(
+                                                    gsub("^\\s+|\\s+$";"") |
+                                                    gsub("^\"|\"$";"")
+                                                ) |
+                                                map(select(. != ""))
+                                            )
+                                        else
+                                            .
+                                        end
+                                    )
+                                else
+                                    null
+                                end
+                            ) as $DEFAULT |
+                            $OPTIONS_ARRAY + [{
+                                "patchName": $PATCH_NAME,
+                                "key": $KEY,
+                                "title": $TITLE,
+                                "description": $DESCRIPTION,
+                                "required": ($REQUIRED == "true"),
+                                "type": $TYPE,
+                                "default": $DEFAULT,
+                                "values": $ARGS.positional
+                            }]
+                        ' --args "${VALUES[@]}"
+                    )
+                    unset TITLE KEY DESCRIPTION REQUIRED DEFAULT TYPE VALUES
+                done
+                unset OPTIONS
+            fi
+        else
+            PATCH=$(sed '/^Name:/d;/^Enabled:/d' <<< "$PATCH")
 
-                OPTIONS_ARRAY=$(
-                    jq -nc \
-                        --arg PATCH_NAME "$PATCH_NAME" \
-                        --arg KEY "$KEY" \
-                        --arg TITLE "$TITLE" \
-                        --arg DESCRIPTION "$DESCRIPTION" \
-                        --arg REQUIRED "$REQUIRED" \
-                        --arg DEFAULT "$DEFAULT" \
-                        --arg TYPE "$TYPE" \
-                        --arg STRING "$STRING" \
-                        --arg NUMBER "$NUMBER" \
-                        --arg BOOLEAN "$BOOLEAN" \
-                        --arg STRINGARRAY "$STRINGARRAY" \
-                        --argjson OPTIONS_ARRAY "$OPTIONS_ARRAY" '
-                        (
-                            $TYPE |
-                            if test("List") then
-                                $STRINGARRAY
-                            elif test("Boolean") then
-                                $BOOLEAN
-                            elif test("Long|Int|Float") then
-                                $NUMBER
-                            else
-                                $STRING
-                            end
-                        ) as $TYPE |
-                        (
-                            $DEFAULT |
-                            if . != "" then
-                                (
-                                    if $TYPE == $STRING then
-                                        tostring
-                                    elif $TYPE == $NUMBER then
-                                        tonumber
-                                    elif $TYPE == $BOOLEAN then
-                                        toboolean
-                                    elif $TYPE == $STRINGARRAY then
-                                        (gsub("(?<a>([^,\\[\\] ]+))" ; "\"" + .a + "\"") | fromjson)
-                                    end
-                                )
-                            else
-                                null
-                            end
-                        ) as $DEFAULT |
-                        $OPTIONS_ARRAY + [{
-                            "patchName": $PATCH_NAME,
-                            "key": $KEY,
-                            "title": $TITLE,
-                            "description": $DESCRIPTION,
-                            "required": ($REQUIRED | toboolean),
-                            "type": $TYPE,
-                            "default": $DEFAULT,
-                            "values": $ARGS.positional
-                        }]
-                    ' --args "${VALUES[@]}"
-                )
-                unset TITLE KEY DESCRIPTION REQUIRED DEFAULT TYPE VALUES
-            done
-            unset OPTIONS
+            if grep -q '^C' <<< "$PATCH"; then
+                readarray -t PACKAGES < <(grep $'^\tPackage name:' <<< "$PATCH" | sed 's/.*: //;s/ //g')
+                PATCH=$(sed '/^Compatible packages:/d;/^\tPackage name:/d' <<< "$PATCH")
+            fi
+
+            OPTIONS_ARRAY='[]'
+            if grep -q "Options:" <<< "$PATCH"; then
+                PATCH=$(sed '/^Options:/d;s/^\t//g' <<< "$PATCH")
+                readarray -d '' -t OPTIONS < <(awk -v RS='\n\nTitle' -v ORS='\0' '1' <<< "$PATCH")
+
+                for OPTION in "${OPTIONS[@]}"; do
+
+                    KEY=$(grep '^Key:' <<< "$OPTION" | sed 's/.*: //;s/ //g')
+                    TITLE=$(grep -E '^Title:|^:' <<< "$OPTION" | sed 's/.*: //;')
+                    REQUIRED=$(grep '^Required:' <<< "$OPTION" | sed 's/.*: //')
+                    DEFAULT=$(grep '^Default:' <<< "$OPTION" | sed 's/.*: //')
+                    TYPE=$(grep '^Type:' <<< "$OPTION" | sed 's/.*: //;s/ //')
+
+                    if grep -q "^Possible values:" <<< "$OPTION"; then
+                        readarray -t VALUES < <(grep $'^\t' <<< "$OPTION" | sed 's/\t//')
+                    fi
+
+                    OPTION=$(sed '/^Key:/d;/^Title:/d;/^:/d;/^Required:/d;/^Default:/d;/^Type:/d;/^Possible values:/d;/^\t/d' <<< "$OPTION")
+
+                    DESCRIPTION=$(sed 's/^Description: //;s/\n/\\n/g' <<< "$OPTION")
+
+                    OPTIONS_ARRAY=$(
+                        jq -nc \
+                            --arg PATCH_NAME "$PATCH_NAME" \
+                            --arg KEY "$KEY" \
+                            --arg TITLE "$TITLE" \
+                            --arg DESCRIPTION "$DESCRIPTION" \
+                            --arg REQUIRED "$REQUIRED" \
+                            --arg DEFAULT "$DEFAULT" \
+                            --arg TYPE "$TYPE" \
+                            --arg STRING "$STRING" \
+                            --arg NUMBER "$NUMBER" \
+                            --arg BOOLEAN "$BOOLEAN" \
+                            --arg STRINGARRAY "$STRINGARRAY" \
+                            --argjson OPTIONS_ARRAY "$OPTIONS_ARRAY" '
+                            (
+                                $TYPE |
+                                if test("List") then
+                                    $STRINGARRAY
+                                elif test("Boolean") then
+                                    $BOOLEAN
+                                elif test("Long|Int|Float") then
+                                    $NUMBER
+                                else
+                                    $STRING
+                                end
+                            ) as $TYPE |
+                            (
+                                $DEFAULT |
+                                if . != "" then
+                                    (
+                                        if $TYPE == $STRING then
+                                            tostring
+                                        elif $TYPE == $NUMBER then
+                                            tonumber
+                                        elif $TYPE == $BOOLEAN then
+                                            toboolean
+                                        elif $TYPE == $STRINGARRAY then
+                                            (gsub("(?<a>([^,\\[\\] ]+))" ; "\"" + .a + "\"") | fromjson)
+                                        end
+                                    )
+                                else
+                                    null
+                                end
+                            ) as $DEFAULT |
+                            $OPTIONS_ARRAY + [{
+                                "patchName": $PATCH_NAME,
+                                "key": $KEY,
+                                "title": $TITLE,
+                                "description": $DESCRIPTION,
+                                "required": ($REQUIRED | toboolean),
+                                "type": $TYPE,
+                                "default": $DEFAULT,
+                                "values": $ARGS.positional
+                            }]
+                        ' --args "${VALUES[@]}"
+                    )
+                    unset TITLE KEY DESCRIPTION REQUIRED DEFAULT TYPE VALUES
+                done
+                unset OPTIONS
+            fi
         fi
 
         AVAILABLE_PATCHES=$(
@@ -163,7 +269,7 @@ parseJsonFromCLI() {
                     map(
                         if .pkgName == $PKG_NAME then
                             .patches |= (
-                                if ($USE | toboolean) then
+                                if ($USE == "true") then
                                     .recommended += [$PATCH_NAME]
                                 else
                                     .optional += [$PATCH_NAME]

@@ -67,7 +67,11 @@ fetchAssetsInfo() {
                 SOURCE_TYPE="morphe"
                 ;;
             *.rvp)
-                SOURCE_TYPE="revanced"
+                if [ "$SOURCE" == "ReVanced" ]; then
+                    SOURCE_TYPE="revanced"
+                else
+                    SOURCE_TYPE="rvx"
+                fi
                 ;;
         esac
 
@@ -78,6 +82,12 @@ fetchAssetsInfo() {
                 CLI_API_URL="https://api.github.com/repos/MorpheApp/morphe-cli/releases"
             else
                 CLI_API_URL="https://api.github.com/repos/MorpheApp/morphe-cli/releases/latest"
+            fi
+        elif [ "$SOURCE_TYPE" == "rvx" ]; then
+            if [ "$USE_PRE_RELEASE" == "on" ]; then
+                CLI_API_URL="https://api.github.com/repos/inotia00/revanced-cli/releases"
+            else
+                CLI_API_URL="https://api.github.com/repos/inotia00/revanced-cli/releases/latest"
             fi
         else
             if [ "$USE_PRE_RELEASE" == "on" ]; then
@@ -128,7 +138,11 @@ fetchAssets() {
             SOURCE_TYPE="morphe"
             ;;
         *.rvp)
-            SOURCE_TYPE="revanced"
+            if [ "$SOURCE" == "ReVanced" ]; then
+                SOURCE_TYPE="revanced"
+            else
+                SOURCE_TYPE="rvx"
+            fi
             ;;
     esac
 
@@ -142,7 +156,11 @@ fetchAssets() {
                 SOURCE_TYPE="morphe"
                 ;;
             *.rvp)
-                SOURCE_TYPE="revanced"
+                if [ "$SOURCE" == "ReVanced" ]; then
+                    SOURCE_TYPE="revanced"
+                else
+                    SOURCE_TYPE="rvx"
+                fi
                 ;;
         esac
         source "assets/$SOURCE_TYPE-cli.data"
@@ -151,6 +169,9 @@ fetchAssets() {
     if [ "$SOURCE_TYPE" == "morphe" ]; then
         CLI_FILE="assets/Morphe-CLI-$CLI_VERSION.jar"
         [ -e "$CLI_FILE" ] || rm -- assets/Morphe-CLI-* &> /dev/null
+    elif [ "$SOURCE_TYPE" == "rvx" ]; then
+        CLI_FILE="assets/RVX-CLI-$CLI_VERSION.jar"
+        [ -e "$CLI_FILE" ] || rm -- assets/RVX-CLI-* &> /dev/null
     else
         CLI_FILE="assets/ReVanced-CLI-$CLI_VERSION.jar"
         [ -e "$CLI_FILE" ] || rm -- assets/ReVanced-CLI-* &> /dev/null
