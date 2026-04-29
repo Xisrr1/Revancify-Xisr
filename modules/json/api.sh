@@ -13,6 +13,21 @@ parseJsonFromAPI() {
                 --arg BOOLEAN "$BOOLEAN" \
                 --arg STRINGARRAY "$STRINGARRAY" '
                 (if type == "object" and has("patches") then .patches else . end) |
+                map(
+                    (if has("use") then . else .use = .default end) |
+                    (if (.compatiblePackages | type) == "array" then
+                        .compatiblePackages = (
+                            .compatiblePackages | map({
+                                key: (.packageName // .name),
+                                value: (
+                                    (.targets // .versions // []) |
+                                    map(if type == "object" then .version else . end) |
+                                    map(select(. != null))
+                                )
+                            }) | from_entries
+                        )
+                    else . end)
+                ) |
                 reduce .[] as {
                     name: $PATCH,
                     use: $USE,
