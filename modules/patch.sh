@@ -87,7 +87,7 @@ patchApp() {
         echo -e "Root Access: $ROOT_ACCESS\nArchitecture: $ARCH\nApp: $APP_NAME v$APP_VER\nCLI: $CLI_FILE\nPatches: $PATCHES_FILE\nArguments: ${ARGUMENTS[*]}\n\nLogs:\n" > "$STORAGE/patch_log.txt"
 
         java -jar "$CLI_FILE" patch \
-            --force --exclusive -p "$PATCHES_FILE" \
+            --continue-on-error --force --exclusive -p "$PATCHES_FILE" \
             -o "apps/$APP_NAME/$APP_VER-$SOURCE.apk" \
             "${ARGUMENTS[@]}" \
             --keystore="$STORAGE/morphe.keystore" \
