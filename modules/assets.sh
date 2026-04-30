@@ -2,7 +2,7 @@
 
 fetchAssetsInfo() {
     unset CLI_VERSION CLI_URL CLI_SIZE PATCHES_VERSION PATCHES_URL PATCHES_SIZE JSON_URL SOURCE_TYPE
-    local VERSION PATCHES_API_URL CLI_API_URL REPO VERSION_URL
+    local VERSION PATCHES_API_URL CLI_API_URL REPO VERSION_URL REVANCED_API_URL
 
     internet || return 1
 
@@ -54,8 +54,26 @@ fetchAssetsInfo() {
                 "PATCHES_URL='\''\($ASSET.browser_download_url)'\''",
                 "PATCHES_SIZE='\''\($ASSET.size|tostring)'\''"
             ' > "assets/$SOURCE/.data" 2> /dev/null; then
-            notify msg "Unable to fetch latest Patches info from API!!\nRetry later."
-            return 1
+            if [ "$SOURCE" == "ReVanced" ]; then
+                if [ "$USE_PRE_RELEASE" == "on" ]; then
+                    REVANCED_API_URL="https://api.revanced.app/v5/patches/prerelease"
+                else
+                    REVANCED_API_URL="https://api.revanced.app/v5/patches"
+                fi
+
+                if ! "${CURL[@]}" "$REVANCED_API_URL" |
+                    jq -er '
+                        "PATCHES_VERSION=\(.version | sub("^v"; ""))",
+                        "PATCHES_URL=\(.download_url)",
+                        "PATCHES_SIZE=0"
+                    ' > "assets/$SOURCE/.data" 2> /dev/null; then
+                    notify msg "Unable to fetch latest Patches info from API!!\nRetry later."
+                    return 1
+                fi
+            else
+                notify msg "Unable to fetch latest Patches info from API!!\nRetry later."
+                return 1
+            fi
         fi
 
         [ -n "$JSON_URL" ] && setEnv JSON_URL "$JSON_URL" init "assets/$SOURCE/.data"
@@ -198,17 +216,21 @@ fetchAssets() {
     fi
     [ -e "$PATCHES_FILE" ] || rm -- assets/"$SOURCE"/Patches-* &> /dev/null
 
-    CTR=2 && while [ "$PATCHES_SIZE" != "$(stat -c %s "$PATCHES_FILE" 2> /dev/null || echo 0)" ]; do
+    CTR=2 && while { [ "$PATCHES_SIZE" == "0" ] && [ ! -s "$PATCHES_FILE" ]; } || { [ "$PATCHES_SIZE" != "0" ] && [ "$PATCHES_SIZE" != "$(stat -c %s "$PATCHES_FILE" 2> /dev/null || echo 0)" ]; }; do
         if [ $CTR -eq 0 ]; then
             rm "$PATCHES_FILE" &> /dev/null
             notify msg "Oops! Unable to download completely.\n\nRetry or change your Network."
             return 1
         fi
         ((CTR--))
-        "${WGET[@]}" "$PATCHES_URL" -O "$PATCHES_FILE" |&
-            stdbuf -o0 cut -b 63-65 |
-            stdbuf -o0 grep '[0-9]' |
-            "${DIALOG[@]}" --gauge "File    : $(basename "$PATCHES_FILE")\nSize    : $(numfmt --to=iec --format="%0.1f" "$PATCHES_SIZE")\n\nDownloading..." -1 -1 "$(($(($(stat -c %s "$PATCHES_FILE" 2> /dev/null || echo 0) * 100)) / PATCHES_SIZE))"
+        if [ "$PATCHES_SIZE" == "0" ]; then
+            "${WGET[@]}" "$PATCHES_URL" -O "$PATCHES_FILE" &> /dev/null
+        else
+            "${WGET[@]}" "$PATCHES_URL" -O "$PATCHES_FILE" |&
+                stdbuf -o0 cut -b 63-65 |
+                stdbuf -o0 grep '[0-9]' |
+                "${DIALOG[@]}" --gauge "File    : $(basename "$PATCHES_FILE")\nSize    : $(numfmt --to=iec --format="%0.1f" "$PATCHES_SIZE")\n\nDownloading..." -1 -1 "$(($(($(stat -c %s "$PATCHES_FILE" 2> /dev/null || echo 0) * 100)) / PATCHES_SIZE))"
+        fi
         tput civis
     done
 
