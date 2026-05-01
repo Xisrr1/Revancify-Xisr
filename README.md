@@ -13,7 +13,7 @@
 - [x] Has a `More versions` option to browse all available versions from APKMirror without limits
 - [x] Supports pre-release patches and CLIs
 - [x] Supports the new Morphe format with automatic source type detection
-- [x] Supports `Piko`,`Morphe`,`RVX-Morphed`,`Patcheddit` and `ReVanced-Experiments` sources
+- [x] Additionally supports `Piko`, `Morphe`, `hoodles-Morphe`, `Paresh-Morphe`, `De-ReVanced`, `Patcheddit` and `ReVanced-Experiments` sources
 - [x] Has a redesigned `Import` menu with a full internal storage browser
 - [x] Allows manually importing APKs if fetching app list fails
 - [x] Uses an updated user-agent to reduce Cloudflare blocks
