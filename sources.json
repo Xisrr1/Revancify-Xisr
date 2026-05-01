@@ -8,14 +8,6 @@
         }
     },
     {
-        "source": "ReVanced-Extended",
-        "repository": "inotia00/revanced-patches",
-        "api": {
-            "json": "https://raw.githubusercontent.com/inotia00/revanced-patches/refs/heads/revanced-extended/patches.json",
-            "version": null
-        }
-    },
-    {
         "source": "Anddea",
         "repository": "anddea/revanced-patches",
         "api": {
@@ -32,14 +24,6 @@
         }
     },
     {
-        "source": "RVX-Android-6-7",
-        "repository": "kitadai31/revanced-patches-android6-7",
-        "api": {
-            "json": "https://raw.githubusercontent.com/kitadai31/revanced-patches-android6-7/refs/heads/revanced-extended/patches.json",
-            "version": null
-        }
-    },
-    {
         "source": "Morphe",
         "repository": "MorpheApp/morphe-patches",
         "api": {
@@ -48,18 +32,26 @@
         }
     },
     {
-        "source": "De-ReVanced",
-        "repository": "RookieEnough/De-ReVanced",
+        "source": "hoodles-Morphe",
+        "repository": "hoo-dles/morphe-patches",
         "api": {
-            "json": "https://raw.githubusercontent.com/RookieEnough/De-ReVanced/refs/heads/main/patches-list.json",
+            "json": "https://raw.githubusercontent.com/hoo-dles/morphe-patches/refs/heads/main/patches-list.json",
             "version": null
         }
     },
     {
-        "source": "RVX-Morphed",
-        "repository": "wchill/rvx-morphed",
+        "source": "Paresh-Morphe",
+        "repository": "Paresh-Maheshwari/paresh-patches",
         "api": {
-            "json": "https://raw.githubusercontent.com/wchill/rvx-morphed/refs/heads/main/patches-list.json",
+            "json": "https://raw.githubusercontent.com/Paresh-Maheshwari/paresh-patches/refs/heads/main/patches-list.json",
+            "version": null
+        }
+    },
+    {
+        "source": "De-ReVanced",
+        "repository": "RookieEnough/De-ReVanced",
+        "api": {
+            "json": "https://raw.githubusercontent.com/RookieEnough/De-ReVanced/refs/heads/main/patches-list.json",
             "version": null
         }
     },
