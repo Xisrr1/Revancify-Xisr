@@ -2,7 +2,7 @@
 
 fetchAssetsInfo() {
     unset CLI_VERSION CLI_URL CLI_SIZE PATCHES_VERSION PATCHES_URL PATCHES_SIZE JSON_URL SOURCE_TYPE
-    local VERSION PATCHES_API_URL CLI_API_URL REPO VERSION_URL REVANCED_API_URL
+    local VERSION PATCHES_API_URL GITLAB_API_URL CLI_API_URL REPO VERSION_URL REVANCED_API_URL
 
     internet || return 1
 
@@ -28,7 +28,16 @@ fetchAssetsInfo() {
             ' sources.json
         )
 
-        [ "$USE_PRE_RELEASE" == "on" ] && JSON_URL=$(sed 's|/refs/heads/[^/]*/|/refs/heads/dev/|' <<< "$JSON_URL")
+        if [ "$USE_PRE_RELEASE" == "on" ]; then
+            case "$JSON_URL" in
+                *"/-/raw/"*)
+                    JSON_URL=$(sed 's|/-/raw/[^/]*/|/-/raw/dev/|' <<< "$JSON_URL")
+                    ;;
+                *"/refs/heads/"*)
+                    JSON_URL=$(sed 's|/refs/heads/[^/]*/|/refs/heads/dev/|' <<< "$JSON_URL")
+                    ;;
+            esac
+        fi
 
         if [ -n "$VERSION_URL" ]; then
             if VERSION=$("${CURL[@]}" "$VERSION_URL" | jq -r '.version' 2> /dev/null); then
@@ -43,6 +52,14 @@ fetchAssetsInfo() {
             else
                 PATCHES_API_URL="https://api.github.com/repos/$REPO/releases/latest"
             fi
+        fi
+
+        if [ -n "$VERSION" ]; then
+            GITLAB_API_URL="https://gitlab.com/api/v4/projects/${REPO//\//%2F}/releases/$VERSION"
+        elif [ "$USE_PRE_RELEASE" == "on" ]; then
+            GITLAB_API_URL="https://gitlab.com/api/v4/projects/${REPO//\//%2F}/releases"
+        else
+            GITLAB_API_URL="https://gitlab.com/api/v4/projects/${REPO//\//%2F}/releases/permalink/latest"
         fi
 
         if ! "${CURL[@]}" "$PATCHES_API_URL" |
@@ -70,6 +87,18 @@ fetchAssetsInfo() {
                     notify msg "Unable to fetch latest Patches info from API!!\nRetry later."
                     return 1
                 fi
+            elif "${CURL[@]}" "$GITLAB_API_URL" |
+                jq -er '
+                    (if type == "array" then .[0] else . end) as $RELEASE |
+                    ($RELEASE.assets.links | map(select(.name | endswith(".rvp") or endswith(".mpp")))[0]) as $ASSET |
+                    select($ASSET != null) |
+                    "PATCHES_VERSION='\''\($RELEASE.tag_name)'\''",
+                    "PATCHES_URL='\''\($ASSET.direct_asset_url // $ASSET.url)'\''",
+                    "PATCHES_SIZE='\''0'\''"
+                ' > "assets/$SOURCE/.data" 2> /dev/null; then
+                source "assets/$SOURCE/.data"
+                PATCHES_SIZE=$("${CURL[@]}" -I "$PATCHES_URL" | awk 'tolower($1) == "content-length:" { size = $2 } END { print size }' | tr -d '\r')
+                [ -n "$PATCHES_SIZE" ] && setEnv PATCHES_SIZE "$PATCHES_SIZE" update "assets/$SOURCE/.data"
             else
                 notify msg "Unable to fetch latest Patches info from API!!\nRetry later."
                 return 1

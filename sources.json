@@ -43,7 +43,7 @@
         "source": "Paresh-Morphe",
         "repository": "Paresh-Maheshwari/paresh-patches",
         "api": {
-            "json": "https://raw.githubusercontent.com/Paresh-Maheshwari/paresh-patches/refs/heads/main/patches-list.json",
+            "json": "https://gitlab.com/Paresh-Maheshwari/paresh-patches/-/raw/main/patches-list.json",
             "version": null
         }
     },
