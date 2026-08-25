@@ -59,24 +59,28 @@ terminate() {
 trap terminate SIGTERM SIGINT SIGABRT
 
 installDependencies() {
-    local BINS BIN CTR RESPONSE
+    local CTR RESPONSE
     echo "Checking dependencies..."
     rm -f "$SRC/revancify" 2>/dev/null
 
     [ -e "$HOME/storage" ] || termux-setup-storage
 
-    BINS=$(ls "$PREFIX/bin")
-    grep -q java <<< "$BINS" || PKGS+=("openjdk-21")
-    grep -q wget <<< "$BINS" || PKGS+=("wget" "libandroid-posix-semaphore")
-    grep -q tput <<< "$BINS" || PKGS+=("ncurses-utils")
-    grep -q dialog <<< "$BINS" || PKGS+=("dialog")
-    grep -q pup <<< "$BINS" || PKGS+=("pup")
-    grep -q jq <<< "$BINS" || PKGS+=("jq")
-    grep -q unzip <<< "$BINS" || PKGS+=("unzip")
+    dpkg -s openjdk-21 &> /dev/null || PKGS+=("openjdk-21")
+    dpkg -s wget libandroid-posix-semaphore &> /dev/null || PKGS+=("wget" "libandroid-posix-semaphore")
+    dpkg -s ncurses-utils &> /dev/null || PKGS+=("ncurses-utils")
+    dpkg -s dialog &> /dev/null || PKGS+=("dialog")
+    dpkg -s pup &> /dev/null || PKGS+=("pup")
+    dpkg -s jq &> /dev/null || PKGS+=("jq")
+    dpkg -s unzip &> /dev/null || PKGS+=("unzip")
 
     if [ "${#PKGS[@]}" -ne 0 ]; then
         pkg update || return 1
         yes | pkg install "${PKGS[@]}" || return 1
+    fi
+
+    # Migration
+    if dpkg -s openjdk-17 &> /dev/null; then
+        pkg uninstall -y openjdk-17 || return 1
     fi
 
     sed -i '/allow-external-apps/s/# //' "$HOME/.termux/termux.properties"
@@ -111,8 +115,6 @@ installDependencies() {
             break
         else
             rm "$APK_EDITOR"
-            yes | pkg uninstall -y openjdk-21
-            yes | pkg install openjdk-17
         fi
         ((CTR++))
     done
