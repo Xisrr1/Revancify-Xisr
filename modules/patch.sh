@@ -83,6 +83,7 @@ patchApp() {
                 )
             '
         )
+        [ -f "$STORAGE/morphe.keystore" ] && ARGUMENTS+=(--keystore="$STORAGE/morphe.keystore")
 
         echo -e "Root Access: $ROOT_ACCESS\nArchitecture: $ARCH\nApp: $APP_NAME v$APP_VER\nCLI: $CLI_FILE\nPatches: $PATCHES_FILE\nArguments: ${ARGUMENTS[*]}\n\nLogs:\n" > "$STORAGE/patch_log.txt"
 
@@ -90,7 +91,6 @@ patchApp() {
             --continue-on-error --force --exclusive -p "$PATCHES_FILE" \
             -o "apps/$APP_NAME/$APP_VER-$SOURCE.apk" \
             "${ARGUMENTS[@]}" \
-            --keystore="$STORAGE/morphe.keystore" \
             "apps/$APP_NAME/$APP_VER.apk" |&
             tee -a "$STORAGE/patch_log.txt" |
             "${DIALOG[@]}" \
@@ -195,6 +195,7 @@ patchApp() {
 
     EXIT_CODE=$?
     tput civis
+    cp -n assets/morphe-data/morphe.keystore "$STORAGE/" &> /dev/null
 
     if [ $EXIT_CODE -eq 3 ]; then
         termux-open --send "$STORAGE/patch_log.txt"
